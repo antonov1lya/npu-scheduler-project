@@ -39,5 +39,5 @@ pip install gradio matplotlib
 ```
 Запсук демо:
 ```
-python demo/demo.py
+python gradio_demo/demo.py
 ```
