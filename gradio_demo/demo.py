@@ -61,7 +61,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="NPU Scheduler") as demo:
 
             algorithm = gr.Dropdown(
                 choices=["algo1", "algo2", "algo3"],
-                value="base",
+                value="algo1",
                 label="⚙️ Select Algorithm"
             )
 
