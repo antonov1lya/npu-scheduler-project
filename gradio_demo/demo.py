@@ -11,7 +11,7 @@ BUILD_DIR = os.path.join(BASE_DIR, "build")
 BINARY_PATH = os.path.join(BUILD_DIR, "npu_scheduler")
 
 
-def run_npu(input_file):
+def run_npu(input_file, algorithm):
     if input_file is None:
         return "Please upload input.txt", None, None, None
 
@@ -58,6 +58,13 @@ with gr.Blocks(theme=gr.themes.Soft(), title="NPU Scheduler") as demo:
     with gr.Row():
         with gr.Column(scale=1):
             input_file = gr.File(label="📄 Upload input.txt")
+
+            algorithm = gr.Dropdown(
+                choices=["algo1", "algo2", "algo3"],
+                value="algo1",
+                label="⚙️ Select Algorithm"
+            )
+
             run_button = gr.Button("🚀 Run Scheduler", variant="primary")
 
         with gr.Column(scale=2):
@@ -74,7 +81,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="NPU Scheduler") as demo:
 
     run_button.click(
         fn=run_npu,
-        inputs=input_file,
+        inputs=[input_file, algorithm],
         outputs=[output_text, plot, download_png, download_output]
     )
 
