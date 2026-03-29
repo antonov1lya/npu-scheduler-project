@@ -30,13 +30,11 @@ http://0.0.0.0:7860
 ### Локальный запуск
 Сборка:
 ```
-mkdir build
-cd build
-cmake .. && make
+cmake -S . -B build && cmake --build build
 ```
 Установка python зависимостей:
 ```
-pip install gradio matplotlib
+pip install -r requirements.txt
 ```
 Запсук демо:
 ```
