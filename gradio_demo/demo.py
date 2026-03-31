@@ -19,7 +19,7 @@ def run_npu(input_file, algorithm):
 
     try:
         process = subprocess.Popen(
-            [BINARY_PATH, input_path, "./", "base", "30"],
+            [BINARY_PATH, input_path, "./", algorithm, "30"],
             cwd=BUILD_DIR
         )
         process.wait()
@@ -60,8 +60,14 @@ with gr.Blocks(theme=gr.themes.Soft(), title="NPU Scheduler") as demo:
             input_file = gr.File(label="📄 Upload input.txt")
 
             algorithm = gr.Dropdown(
-                choices=["algo1", "algo2", "algo3"],
-                value="algo1",
+                choices=["base",
+                         "heuristics",
+                         "genetic",
+                         "annealing",
+                         "heuristics+genetic",
+                         "heuristics+annealing",
+                         "heuristics+genetic+annealing"],
+                value="base",
                 label="⚙️ Select Algorithm"
             )
 

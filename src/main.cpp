@@ -179,7 +179,7 @@ ll simulate(const vector<ll> &prio, vector<vector<int>> *sched = nullptr)
     return ans;
 }
 
-void solve(const std::string &inputFile, const std::string &outputDir)
+void solve(const std::string &inputFile, const std::string &outputDir, const std::string &algo)
 {
     auto start = chrono::steady_clock::now();
 
@@ -232,37 +232,39 @@ void solve(const std::string &inputFile, const std::string &outputDir)
     add([](int i)
         { return tasks[i].duration; });
 
-    add([](int i)
-        { return bottom_level[i] * 1000 + tasks[i].duration; });
-    add([](int i)
-        { return critical_path[i] * 500 + tasks[i].duration; });
-    add([](int i)
-        { return bottom_level[i] * 100 - tasks[i].duration; });
-    add([](int i)
-        { return top_level[i] * 100 + tasks[i].dependents.size(); });
+    if (algo.find("heuristics") != std::string::npos) {
+        add([](int i)
+            { return bottom_level[i] * 1000 + tasks[i].duration; });
+        add([](int i)
+            { return critical_path[i] * 500 + tasks[i].duration; });
+        add([](int i)
+            { return bottom_level[i] * 100 - tasks[i].duration; });
+        add([](int i)
+            { return top_level[i] * 100 + tasks[i].dependents.size(); });
 
-    double avg_v_cores = n_vector > 0 ? (n * 1.0) / n_vector : 1.0;
-    double avg_c_cores = n_cube > 0 ? (n * 1.0) / n_cube : 1.0;
+        double avg_v_cores = n_vector > 0 ? (n * 1.0) / n_vector : 1.0;
+        double avg_c_cores = n_cube > 0 ? (n * 1.0) / n_cube : 1.0;
 
-    add([avg_v_cores, avg_c_cores](int i)
-        { 
-        double factor = (tasks[i].type == 'V') ? avg_v_cores : avg_c_cores;
-        return bottom_level[i] * (100 + (int)(factor * 10)); });
+        add([avg_v_cores, avg_c_cores](int i)
+            { 
+            double factor = (tasks[i].type == 'V') ? avg_v_cores : avg_c_cores;
+            return bottom_level[i] * (100 + (int)(factor * 10)); });
 
-    add([](int i)
-        { return bottom_level[i] * 1000 / max(1, tasks[i].duration); });
+        add([](int i)
+            { return bottom_level[i] * 1000 / max(1, tasks[i].duration); });
 
-    add([](int i)
-        { return critical_path[i] * 1000 / max(1, tasks[i].duration); });
+        add([](int i)
+            { return critical_path[i] * 1000 / max(1, tasks[i].duration); });
 
-    add([](int i)
-        { return bottom_level[i] * 100 + tasks[i].dependencies.size() * 10; });
+        add([](int i)
+            { return bottom_level[i] * 100 + tasks[i].dependencies.size() * 10; });
 
-    add([](int i)
-        { return bottom_level[i] * 100 - tasks[i].dependents.size() * 10; });
+        add([](int i)
+            { return bottom_level[i] * 100 - tasks[i].dependents.size() * 10; });
 
-    add([](int i)
-        { return bottom_level[i] * 100 + (i * 917 + 123) % 97; });
+        add([](int i)
+            { return bottom_level[i] * 100 + (i * 917 + 123) % 97; });
+    }
 
     sort(pop.begin(), pop.end());
 
@@ -272,102 +274,104 @@ void solve(const std::string &inputFile, const std::string &outputDir)
     constexpr float GENETIC_TIMEOUT = 3500.0;
     constexpr int GENETIC_ITERS = 8;
 
-    for (uint64_t seed = 0; seed < GENETIC_ITERS; seed++)
-    {
-        auto now_time = chrono::steady_clock::now();
-        double elapsed = chrono::duration_cast<chrono::milliseconds>(now_time - start).count();
-        if (elapsed > GENETIC_TIMEOUT)
-            break;
-
-        double time_per_seed = (GENETIC_TIMEOUT - elapsed) / (GENETIC_ITERS - seed);
-        auto seed_end = now_time + chrono::milliseconds((int)time_per_seed);
-
-        mt19937_64 rng(seed * 12345 + 42);
-        uniform_real_distribution<double> prob(0.0, 1.0);
-        uniform_int_distribution<int> task_d(0, n - 1);
-        uniform_int_distribution<int> parent_sel(0, 4); // Select from top 5
-
-        vector<pair<ll, vector<ll>>> cur_pop = pop;
-        ll best = cur_pop[0].first;
-        vector<ll> best_prio = cur_pop[0].second;
-
-        int iterations = 0;
-        while (chrono::steady_clock::now() < seed_end)
+    if (algo.find("genetic") != std::string::npos) {
+        for (uint64_t seed = 0; seed < GENETIC_ITERS; seed++)
         {
-            iterations++;
-            sort(cur_pop.begin(), cur_pop.end());
-            if ((int)cur_pop.size() > POP)
+            auto now_time = chrono::steady_clock::now();
+            double elapsed = chrono::duration_cast<chrono::milliseconds>(now_time - start).count();
+            if (elapsed > GENETIC_TIMEOUT)
+                break;
+
+            double time_per_seed = (GENETIC_TIMEOUT - elapsed) / (GENETIC_ITERS - seed);
+            auto seed_end = now_time + chrono::milliseconds((int)time_per_seed);
+
+            mt19937_64 rng(seed * 12345 + 42);
+            uniform_real_distribution<double> prob(0.0, 1.0);
+            uniform_int_distribution<int> task_d(0, n - 1);
+            uniform_int_distribution<int> parent_sel(0, 4); // Select from top 5
+
+            vector<pair<ll, vector<ll>>> cur_pop = pop;
+            ll best = cur_pop[0].first;
+            vector<ll> best_prio = cur_pop[0].second;
+
+            int iterations = 0;
+            while (chrono::steady_clock::now() < seed_end)
             {
-                cur_pop.resize(POP);
-            }
-
-            vector<pair<ll, vector<ll>>> new_pop(cur_pop.begin(), cur_pop.begin() + min(5, (int)cur_pop.size()));
-
-            for (int k = 0; k < POP - 5; k++)
-            {
-                int p1 = parent_sel(rng);
-                int p2 = parent_sel(rng);
-                while (p2 == p1)
-                    p2 = parent_sel(rng);
-
-                vector<ll> child(n);
-
-                double alpha = prob(rng) * 0.4 + 0.3; // 0.3-0.7 range
-                for (int i = 0; i < n; i++)
+                iterations++;
+                sort(cur_pop.begin(), cur_pop.end());
+                if ((int)cur_pop.size() > POP)
                 {
-                    child[i] = (ll)(alpha * cur_pop[p1].second[i] +
-                                    (1.0 - alpha) * cur_pop[p2].second[i]);
+                    cur_pop.resize(POP);
                 }
 
-                int mut_count = 1 + rng() % 3;
-                for (int j = 0; j < mut_count; j++)
+                vector<pair<ll, vector<ll>>> new_pop(cur_pop.begin(), cur_pop.begin() + min(5, (int)cur_pop.size()));
+
+                for (int k = 0; k < POP - 5; k++)
                 {
-                    int i = task_d(rng);
-                    int op = rng() % 7;
-                    switch (op)
+                    int p1 = parent_sel(rng);
+                    int p2 = parent_sel(rng);
+                    while (p2 == p1)
+                        p2 = parent_sel(rng);
+
+                    vector<ll> child(n);
+
+                    double alpha = prob(rng) * 0.4 + 0.3; // 0.3-0.7 range
+                    for (int i = 0; i < n; i++)
                     {
-                    case 0:
-                        child[i] += (ll)(rng() % 101) - 50;
-                        break;
-                    case 1:
-                        child[i] = bottom_level[i] * (90 + rng() % 21);
-                        break;
-                    case 2:
-                        child[i] = critical_path[i] * (40 + rng() % 21);
-                        break;
-                    case 3:
-                        child[i] += tasks[i].duration * (rng() % 5);
-                        break;
-                    case 4:
-                        swap(child[i], child[task_d(rng)]);
-                        break;
-                    case 5:
-                        child[i] = child[i] * (85 + rng() % 31) / 100;
-                        break;
-                    case 6:
-                        child[i] += (tasks[i].dependents.size() - tasks[i].dependencies.size()) * 10;
-                        break;
+                        child[i] = (ll)(alpha * cur_pop[p1].second[i] +
+                                        (1.0 - alpha) * cur_pop[p2].second[i]);
                     }
-                    if (child[i] < 1)
-                        child[i] = 1;
+
+                    int mut_count = 1 + rng() % 3;
+                    for (int j = 0; j < mut_count; j++)
+                    {
+                        int i = task_d(rng);
+                        int op = rng() % 7;
+                        switch (op)
+                        {
+                        case 0:
+                            child[i] += (ll)(rng() % 101) - 50;
+                            break;
+                        case 1:
+                            child[i] = bottom_level[i] * (90 + rng() % 21);
+                            break;
+                        case 2:
+                            child[i] = critical_path[i] * (40 + rng() % 21);
+                            break;
+                        case 3:
+                            child[i] += tasks[i].duration * (rng() % 5);
+                            break;
+                        case 4:
+                            swap(child[i], child[task_d(rng)]);
+                            break;
+                        case 5:
+                            child[i] = child[i] * (85 + rng() % 31) / 100;
+                            break;
+                        case 6:
+                            child[i] += (tasks[i].dependents.size() - tasks[i].dependencies.size()) * 10;
+                            break;
+                        }
+                        if (child[i] < 1)
+                            child[i] = 1;
+                    }
+
+                    ll t = simulate(child);
+                    new_pop.emplace_back(t, std::move(child));
+                    if (t < best)
+                    {
+                        best = t;
+                        best_prio = new_pop.back().second;
+                    }
                 }
 
-                ll t = simulate(child);
-                new_pop.emplace_back(t, std::move(child));
-                if (t < best)
-                {
-                    best = t;
-                    best_prio = new_pop.back().second;
-                }
+                cur_pop = std::move(new_pop);
             }
 
-            cur_pop = std::move(new_pop);
-        }
-
-        if (best < global_best)
-        {
-            global_best = best;
-            global_best_prio = best_prio;
+            if (best < global_best)
+            {
+                global_best = best;
+                global_best_prio = best_prio;
+            }
         }
     }
 
@@ -381,70 +385,72 @@ void solve(const std::string &inputFile, const std::string &outputDir)
     constexpr int LOCAL_SEARCH_TIMEOUT = 4800;
     int no_improve = 0;
 
-    while (true)
-    {
-        auto now_time = chrono::steady_clock::now();
-        double elapsed = chrono::duration_cast<chrono::milliseconds>(now_time - start).count();
-        if (elapsed > LOCAL_SEARCH_TIMEOUT)
-            break;
-
-        double temp = max(1.0, 100.0 * exp(-elapsed / 1000.0));
-
-        vector<ll> np = cur;
-
-        int changes = 1 + (int)(temp / 20.0);
-        for (int c = 0; c < changes; c++)
+    if (algo.find("annealing") != std::string::npos) {
+        while (true)
         {
-            int i = task_d_f(rng_final);
-            if (prob_f(rng_final) < 0.3)
+            auto now_time = chrono::steady_clock::now();
+            double elapsed = chrono::duration_cast<chrono::milliseconds>(now_time - start).count();
+            if (elapsed > LOCAL_SEARCH_TIMEOUT)
+                break;
+
+            double temp = max(1.0, 100.0 * exp(-elapsed / 1000.0));
+
+            vector<ll> np = cur;
+
+            int changes = 1 + (int)(temp / 20.0);
+            for (int c = 0; c < changes; c++)
             {
-                if (prob_f(rng_final) < 0.5)
+                int i = task_d_f(rng_final);
+                if (prob_f(rng_final) < 0.3)
                 {
-                    np[i] = (bottom_level[i] * 100 + critical_path[i] * 50) / max(1, tasks[i].duration);
+                    if (prob_f(rng_final) < 0.5)
+                    {
+                        np[i] = (bottom_level[i] * 100 + critical_path[i] * 50) / max(1, tasks[i].duration);
+                    }
+                    else
+                    {
+                        np[i] = bottom_level[i] * (80 + rng_final() % 41);
+                    }
                 }
                 else
                 {
-                    np[i] = bottom_level[i] * (80 + rng_final() % 41);
+                    np[i] += change_d(rng_final) * (1 + (int)temp / 10);
+                    if (np[i] < 1)
+                        np[i] = 1;
+                }
+            }
+
+            ll t = simulate(np);
+
+            if (t < cur_time || (temp > 0.1 && prob_f(rng_final) < exp((cur_time - t) / temp)))
+            {
+                cur = np;
+                cur_time = t;
+                if (t < global_best)
+                {
+                    global_best = t;
+                    global_best_prio = cur;
+                    no_improve = 0;
                 }
             }
             else
             {
-                np[i] += change_d(rng_final) * (1 + (int)temp / 10);
-                if (np[i] < 1)
-                    np[i] = 1;
+                no_improve++;
             }
-        }
 
-        ll t = simulate(np);
-
-        if (t < cur_time || (temp > 0.1 && prob_f(rng_final) < exp((cur_time - t) / temp)))
-        {
-            cur = np;
-            cur_time = t;
-            if (t < global_best)
+            if (no_improve > 1000)
             {
-                global_best = t;
-                global_best_prio = cur;
+                cur = global_best_prio;
+                for (int i = 0; i < n / 10; i++)
+                {
+                    int idx = task_d_f(rng_final);
+                    cur[idx] += change_d(rng_final) * 10;
+                    if (cur[idx] < 1)
+                        cur[idx] = 1;
+                }
+                cur_time = simulate(cur);
                 no_improve = 0;
             }
-        }
-        else
-        {
-            no_improve++;
-        }
-
-        if (no_improve > 1000)
-        {
-            cur = global_best_prio;
-            for (int i = 0; i < n / 10; i++)
-            {
-                int idx = task_d_f(rng_final);
-                cur[idx] += change_d(rng_final) * 10;
-                if (cur[idx] < 1)
-                    cur[idx] = 1;
-            }
-            cur_time = simulate(cur);
-            no_improve = 0;
         }
     }
 
@@ -474,7 +480,7 @@ int main(int argc, char *argv[])
     cerr << inputFile << " " << outputDir << " " << algorithm << " " << workTimeSeconds << "\n";
 
     // TODO: consider algorithm and workTimeSeconds
-    solve(inputFile, outputDir);
+    solve(inputFile, outputDir, algorithm);
 
     return 0;
 }
